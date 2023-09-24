@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
 	"os/exec"
@@ -86,9 +85,9 @@ func (m model) renderNote() string {
   }
 
   // Check if the file is cached
-  // if m.cache[m.note] != "" {
-  //   return m.cache[m.note]
-  // }
+  if m.cache[m.note] != "" {
+    return m.cache[m.note]
+  }
 
   // Read and render the file
   content, err := os.ReadFile(notesFolder + m.note)
@@ -101,7 +100,7 @@ func (m model) renderNote() string {
   }
 
   // Cache the file
-  // m.cache[m.note] = out
+  m.cache[m.note] = out
 
   return out
 }
@@ -113,9 +112,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
   switch msg := msg.(type) {
   case tea.KeyMsg:
     switch msg.String() {
-    case "q", "ctrl+c":
+    case "ctrl+c", "q":
       return m, tea.Quit
-    case "b":
+    case "n":
+      m.openNote("untitled.md")
+      m.chosen = false
+      m.table.Focus()
+      m.table, cmd = m.table.Update(msg)
+      return m, cmd
+    case "b", "esc", "backspace":
       m.chosen = false
       m.table.Focus()
       m.table, cmd = m.table.Update(msg)
@@ -153,10 +158,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
   var s string
 
-  if !m.chosen {
-    s = tableView(m)
+  if len(m.notes) == 0 {
+    s = noNotesView(m)
   } else {
-    s = noteView(m)
+    if !m.chosen {
+      s = tableView(m)
+    } else {
+      s = noteView(m)
+    }
   }
 
   return s
@@ -172,10 +181,13 @@ func updateChoices(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
   case tea.KeyMsg:
     switch msg.String() {
     case "enter":
-      m.chosen = true
-      m.note = m.table.SelectedRow()[0]
-      m.noteView.SetContent(m.renderNote())
-      return m, tea.Batch(tea.Printf("Let's go to %s!", m.table.SelectedRow()[0]))
+      if len(m.notes) != 0 {
+        m.chosen = true
+        m.note = m.table.SelectedRow()[0]
+        m.table.Blur()
+        m.noteView.SetContent(m.renderNote())
+        return m, nil
+      }
     }
   }
   
@@ -210,6 +222,10 @@ func updateChosen(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 
 // Sub-view functions 
 
+func noNotesView(m model) string {
+  return fmt.Sprintf("%s", baseStyle.Render(lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Render("No notes found in " + notesFolder + ". Press `n` to create a new note!")))
+}
+
 func tableView(m model) string {
   return fmt.Sprintf("%s", baseStyle.Render(m.table.View()))
 }
@@ -222,30 +238,19 @@ func noteView(m model) string {
 }
 
 func (m model) headerView() string {
-	title := titleStyle.Render(m.table.SelectedRow()[0])
-	line := strings.Repeat("─", max(0, m.noteView.Width-lipgloss.Width(title)))
-	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
+  if m.table.SelectedRow() != nil {
+    title := titleStyle.Render(m.table.SelectedRow()[0])
+    line := strings.Repeat("─", max(0, m.noteView.Width-lipgloss.Width(title)))
+    return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
+  }
+  
+  return ""
 }
 
 func (m model) footerView() string {
 	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.noteView.ScrollPercent()*100))
 	line := strings.Repeat("─", max(0, m.noteView.Width-lipgloss.Width(info)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
-}
-
-func getInitialContent(notes []fs.DirEntry) string {
-  // Load the first note if there is one
-  var content string
-  if len(notes) > 0 {
-    contentBytes, err := os.ReadFile(notesFolder + notes[0].Name())
-    if err != nil {
-      log.Fatal(err)
-    }
-
-    content = string(contentBytes)
-  }
-
-  return content
 }
 
 func getNotes() []note {
