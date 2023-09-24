@@ -118,7 +118,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
       m.openNote("untitled.md")
       m.chosen = false
       m.table.Focus()
-      m.table, cmd = m.table.Update(msg)
+      m.notes = getNotes()
+      m.table, cmd = m.updateTable()
       return m, cmd
     case "b", "esc", "backspace":
       m.chosen = false
@@ -169,6 +170,12 @@ func (m model) View() string {
   }
 
   return s
+}
+
+func (m model) updateTable() (table.Model, tea.Cmd) {
+  rows := convertNotesToRows(m.notes)
+  m.table.SetRows(rows)
+  return m.table, nil
 }
 
 // Sub-update functions
