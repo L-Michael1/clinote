@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -33,8 +35,37 @@ var (
     b.Left = "┤"
     return titleStyle.Copy().BorderStyle(b)
   }()
-)
 
+  keys = keyMap{
+    Up: key.NewBinding(
+      key.WithKeys("up", "k"),
+      key.WithHelp("↑/k", "move up"),
+    ),
+    Down: key.NewBinding(
+      key.WithKeys("down", "j"),
+      key.WithHelp("↓/j", "move down"),
+    ),
+    Help: key.NewBinding(
+      key.WithKeys("?", "/"),
+      key.WithHelp("?", "toggle help"),
+    ),
+    Quit: key.NewBinding(
+      key.WithKeys("q", "ctrl+c"),
+      key.WithHelp("q", "quit"),
+    ),
+    Back: key.NewBinding(
+      key.WithKeys("b", "backspace"),
+      key.WithHelp("b/bspace", "back"),
+    ),
+  }
+)
+type keyMap struct {
+  Up    key.Binding
+  Down  key.Binding
+  Help  key.Binding
+  Quit  key.Binding
+  Back  key.Binding
+}
 type note struct {
   name            string
   timeModified    string
@@ -49,10 +80,23 @@ type model struct {
   noteView        viewport.Model
   cache           map[string]string
   chosen          bool
+  keys            keyMap
+  help            help.Model
 }
 
 func (m model) Init() tea.Cmd { 
   return nil 
+}
+
+func (k keyMap) ShortHelp() []key.Binding {
+  return []key.Binding{k.Help, k.Quit}
+}
+
+func (k keyMap) FullHelp() [][]key.Binding {
+  return [][]key.Binding{
+    {k.Up, k.Down, k.Back},          // first column
+    {k.Help, k.Quit},                // second column
+  }
 }
 
 func (m model) openNote(fileName string) {
@@ -100,10 +144,15 @@ func (m model) renderNote() string {
 // Main update loop
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { 
   var cmd tea.Cmd
-	
+  
   switch msg := msg.(type) {
   case tea.KeyMsg:
+    switch {
+    case key.Matches(msg, m.keys.Help):
+      m.help.ShowAll = !m.help.ShowAll
+    }
     switch msg.String() {
+    
     case "ctrl+c", "q":
       return m, tea.Quit
     case "n":
@@ -121,23 +170,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     }
 
   case tea.WindowSizeMsg:
+    // Note view
     headerHeight := lipgloss.Height(m.headerView())
-		footerHeight := lipgloss.Height(m.footerView())
-		verticalMarginHeight := headerHeight + footerHeight
+    footerHeight := lipgloss.Height(m.footerView())
+    verticalMarginHeight := headerHeight + footerHeight
+    
+    // Help view
+    m.help.Width = msg.Width
 
     // Wait asynchronously for the window size to be available
     if !m.ready {
-			m.noteView = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
-			m.noteView.YPosition = headerHeight
-			m.ready = true
+      m.noteView = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
+      m.noteView.YPosition = headerHeight
+      m.ready = true
 
-			// Render the viewport one line below the header.
-			m.noteView.YPosition = headerHeight + 1
-		} else {
-			m.noteView.Width = msg.Width
-			m.noteView.Height = msg.Height - verticalMarginHeight
+      // Render the viewport one line below the header.
+      m.noteView.YPosition = headerHeight + 1
+    } else {
+      m.noteView.Width = msg.Width
+      m.noteView.Height = msg.Height - verticalMarginHeight
     }
-	}
+  }
 
   // Call update loop on table
   if !m.chosen {
@@ -192,12 +245,12 @@ func updateTableView(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
 // Update loop for the note view after a note has been chosen
 func updateNoteView(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
   var (
-		cmd  tea.Cmd
-		cmds []tea.Cmd
-	)
+    cmd  tea.Cmd
+    cmds []tea.Cmd
+  )
 
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+  switch msg := msg.(type) {
+  case tea.KeyMsg:
     switch msg.String() {
     case "e":
       fmt.Println("edit")
@@ -207,10 +260,10 @@ func updateNoteView(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
   }
 
   // Handle keyboard and mouse events in the viewport
-	m.noteView, cmd = m.noteView.Update(msg)
-	cmds = append(cmds, cmd)
+  m.noteView, cmd = m.noteView.Update(msg)
+  cmds = append(cmds, cmd)
 
-	return m, tea.Batch(cmds...)
+  return m, tea.Batch(cmds...)
 }
 
 // Sub-view functions 
@@ -220,14 +273,15 @@ func noNotesView(m model) string {
 }
 
 func tableView(m model) string {
-  return fmt.Sprintf("%s", baseStyle.Render(m.table.View()))
+  helpView := m.help.View(m.keys)
+  return fmt.Sprintf("%s\n%s", baseStyle.Render(m.table.View()), helpView)
 }
 
 func noteView(m model) string {
   if !m.ready {
-		return "\n  Initializing..."
-	}
-	return fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.noteView.View(), m.footerView())
+    return "\n  Initializing..."
+  }
+  return fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.noteView.View(), m.footerView())
 }
 
 func (m model) headerView() string {
@@ -241,9 +295,9 @@ func (m model) headerView() string {
 }
 
 func (m model) footerView() string {
-	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.noteView.ScrollPercent()*100))
-	line := strings.Repeat("─", max(0, m.noteView.Width-lipgloss.Width(info)))
-	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
+  info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.noteView.ScrollPercent()*100))
+  line := strings.Repeat("─", max(0, m.noteView.Width-lipgloss.Width(info)))
+  return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
 // Utils
@@ -340,11 +394,13 @@ func main() {
   
   p := tea.NewProgram(
     model {
-      note:  string(""),
-      notes: notes,
-      table: t,
-      cache:  make(map[string]string, len(notes)),
-      renderer: *renderer,
+      note:       string(""),
+      notes:      notes,
+      table:      t,
+      cache:      make(map[string]string, len(notes)),
+      renderer:   *renderer,
+      keys:       keys,
+      help:       help.New(),
     },
     tea.WithAltScreen(),
     tea.WithMouseCellMotion(),
