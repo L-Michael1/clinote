@@ -57,6 +57,14 @@ var (
       key.WithKeys("b", "backspace"),
       key.WithHelp("b/bspace", "back"),
     ),
+    New: key.NewBinding(
+      key.WithKeys("n"),
+      key.WithHelp("n", "new note"),
+    ),
+    Edit: key.NewBinding(
+      key.WithKeys("e"),
+      key.WithHelp("e", "edit note"),
+    ),
   }
 )
 type keyMap struct {
@@ -65,6 +73,8 @@ type keyMap struct {
   Help  key.Binding
   Quit  key.Binding
   Back  key.Binding
+  New   key.Binding
+  Edit  key.Binding
 }
 type note struct {
   name            string
@@ -94,7 +104,7 @@ func (k keyMap) ShortHelp() []key.Binding {
 
 func (k keyMap) FullHelp() [][]key.Binding {
   return [][]key.Binding{
-    {k.Up, k.Down, k.Back},          // first column
+    {k.Up, k.Down, k.New, k.Edit, k.Back},          // first column
     {k.Help, k.Quit},                // second column
   }
 }
@@ -155,6 +165,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     
     case "ctrl+c", "q":
       return m, tea.Quit
+    case "e":
+      fmt.Println("edit")
+      m.openNote(m.table.SelectedRow()[0])
+      return m, nil
     case "n":
       m.openNote("new_note.md")
       m.chosen = false
@@ -248,16 +262,6 @@ func updateNoteView(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
     cmd  tea.Cmd
     cmds []tea.Cmd
   )
-
-  switch msg := msg.(type) {
-  case tea.KeyMsg:
-    switch msg.String() {
-    case "e":
-      fmt.Println("edit")
-      m.openNote(m.table.SelectedRow()[0])
-      return m, nil
-    }
-  }
 
   // Handle keyboard and mouse events in the viewport
   m.noteView, cmd = m.noteView.Update(msg)
