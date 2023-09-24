@@ -2,11 +2,31 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"log"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"golang.org/x/term"
 )
+
+type model struct {
+	note 			string
+	notes 		[]fs.DirEntry
+	renderer 	glamour.TermRenderer
+}
+
+func (m model) Init() tea.Cmd { 
+	return nil 
+}
+
+func (m model) Update() tea.Cmd { 
+	return nil
+}
+
+func (m model) View() string { 
+	return "" 
+}
 
 func main() {
 	
