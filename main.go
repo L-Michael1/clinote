@@ -15,13 +15,13 @@ import (
 	"golang.org/x/term"
 )
 
-var notesFolder = os.Getenv("NOTES_FOLDER") + "/"
-
-var baseStyle = lipgloss.NewStyle().
-  BorderStyle(lipgloss.NormalBorder()).
-  BorderForeground(lipgloss.Color("240"))
-
 var (
+  notesFolder = os.Getenv("NOTES_FOLDER") + "/"
+
+  baseStyle = lipgloss.NewStyle().
+    BorderStyle(lipgloss.NormalBorder()).
+    BorderForeground(lipgloss.Color("240"))
+
   titleStyle = func() lipgloss.Style {
     b := lipgloss.RoundedBorder()
     b.Right = "├"
@@ -36,8 +36,8 @@ var (
 )
 
 type note struct {
-  name          string
-  timeModified  string
+  name            string
+  timeModified    string
 }
 type model struct {
   note 			      string
@@ -69,18 +69,13 @@ func (m model) openNote(fileName string) {
   cmd.Stdout = os.Stdout
 
   err := cmd.Run()
-  if err != nil {
-    log.Fatal(err)
-  }
+  checkErr(err)
 }
 
 func (m model) renderNote() string {
-  // If there are no notes, display a message
   if(len(m.notes) == 0) {
     out, err := m.renderer.Render("# No notes found in " + notesFolder + ".\n\nPress `n` to create a new note.\n")
-    if err != nil {
-      log.Fatal(err)
-    }
+    checkErr(err)
     return out
   }
 
@@ -91,13 +86,10 @@ func (m model) renderNote() string {
 
   // Read and render the file
   content, err := os.ReadFile(notesFolder + m.note)
-  if err != nil {
-    log.Fatal(err)
-  }
+  checkErr(err)
+
   out, err := m.renderer.Render(string(content))
-  if err != nil {
-    log.Fatal(err)
-  }
+  checkErr(err)
 
   // Cache the file
   m.cache[m.note] = out
@@ -105,7 +97,7 @@ func (m model) renderNote() string {
   return out
 }
 
-// Main update function
+// Main update loop
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { 
   var cmd tea.Cmd
 	
@@ -115,7 +107,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     case "ctrl+c", "q":
       return m, tea.Quit
     case "n":
-      m.openNote("untitled.md")
+      m.openNote("new_note.md")
       m.chosen = false
       m.table.Focus()
       m.notes = getNotes()
@@ -133,8 +125,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		footerHeight := lipgloss.Height(m.footerView())
 		verticalMarginHeight := headerHeight + footerHeight
 
+    // Wait asynchronously for the window size to be available
     if !m.ready {
-      // Wait asynchronously for the window size to be available
 			m.noteView = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
 			m.noteView.YPosition = headerHeight
 			m.ready = true
@@ -144,16 +136,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.noteView.Width = msg.Width
 			m.noteView.Height = msg.Height - verticalMarginHeight
-		}
+    }
 	}
 
-  // Update table if note not chosen
+  // Call update loop on table
   if !m.chosen {
-    return updateChoices(msg, m)
+    return updateTableView(msg, m)
   } 
 
-  // Update note if chosen
-  return updateChosen(msg, m)
+  // Call update loop on note
+  return updateNoteView(msg, m)
 }
 
 func (m model) View() string {
@@ -172,16 +164,10 @@ func (m model) View() string {
   return s
 }
 
-func (m model) updateTable() (table.Model, tea.Cmd) {
-  rows := convertNotesToRows(m.notes)
-  m.table.SetRows(rows)
-  return m.table, nil
-}
-
 // Sub-update functions
 
 // Update loop for the choices (table) view
-func updateChoices(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
+func updateTableView(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
   var cmd tea.Cmd
 
   switch msg := msg.(type) {
@@ -203,8 +189,8 @@ func updateChoices(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
   return m, cmd
 }
 
-// Update loop for the second view after a choice has been made
-func updateChosen(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
+// Update loop for the note view after a note has been chosen
+func updateNoteView(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
   var (
 		cmd  tea.Cmd
 		cmds []tea.Cmd
@@ -260,13 +246,13 @@ func (m model) footerView() string {
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
+// Utils
+
 func getNotes() []note {
   var notes []note
-  timeFormat := "2006-01-02 15:04"
+  const timeFormat = "2006-01-02 15:04"
   entries, err := os.ReadDir(notesFolder)
-  if err != nil {
-    log.Fatal(err)
-  }
+  checkErr(err)
 
   // Add notes to our model
   for _, entry := range entries {
@@ -274,9 +260,7 @@ func getNotes() []note {
     // Check if entry is a file
     if !entry.IsDir() {
       fileInfo, err := os.Stat(notesFolder + entry.Name())
-      if err != nil {
-        log.Fatal(err)
-      }
+      checkErr(err)
 
       fileName := fileInfo.Name()
       timeModified := fileInfo.ModTime().Format(timeFormat)
@@ -305,6 +289,18 @@ func convertNotesToRows(notes []note) []table.Row {
   return rows
 }
 
+func (m model) updateTable() (table.Model, tea.Cmd) {
+  rows := convertNotesToRows(m.notes)
+  m.table.SetRows(rows)
+  return m.table, nil
+}
+
+func checkErr(err error) {
+  if err != nil {
+    log.Fatal(err)
+  }
+}
+
 func main() {
   columns := []table.Column{
     {Title: "Note", Width: 25},
@@ -318,7 +314,7 @@ func main() {
     table.WithColumns(columns),
     table.WithRows(rows),
     table.WithFocused(true),
-    table.WithHeight(7),
+    table.WithHeight(8),
   )
 
   s := table.DefaultStyles()
@@ -326,21 +322,21 @@ func main() {
     BorderStyle(lipgloss.NormalBorder()).
     BorderForeground(lipgloss.Color("240")).
     BorderBottom(true).
-    Bold(false)
+    Bold(true)
   s.Selected = s.Selected.
     Foreground(lipgloss.Color("229")).
     Background(lipgloss.Color("57")).
-    Bold(false)
+    Bold(true)
   t.SetStyles(s)
 
   terminalWidth, _, err := term.GetSize(0)
+  checkErr(err)
 
   renderer, err := glamour.NewTermRenderer(
       glamour.WithAutoStyle(),
-      glamour.WithWordWrap(terminalWidth-3))
-  if err != nil {
-    log.Fatal(err)
-  }
+      glamour.WithWordWrap(terminalWidth),
+  )
+  checkErr(err)
   
   p := tea.NewProgram(
     model {
