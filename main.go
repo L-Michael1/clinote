@@ -383,7 +383,7 @@ func (m model) updateTable() (table.Model, tea.Cmd) {
 }
 
 func resetTerminal() {
-  cmd := exec.Command("go", "run", ".")
+  cmd := exec.Command("clinote")
   cmd.Stdin = os.Stdin
   cmd.Stdout = os.Stdout
   cmd.Run()
