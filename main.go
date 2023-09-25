@@ -28,7 +28,7 @@ var (
   titleStyle = func() lipgloss.Style {
     b := lipgloss.RoundedBorder()
     b.Right = "├"
-    return lipgloss.NewStyle().BorderStyle(b).Padding(0, 1)
+    return lipgloss.NewStyle().Foreground(lipgloss.Color("225")).BorderStyle(b).Padding(0, 1)
   }()
 
   infoStyle = func() lipgloss.Style {
@@ -411,7 +411,7 @@ func main() {
     editor = strings.Split(os.Getenv("EDITOR"), " ")
   }
 
-
+  // Table configuration
   columns := []table.Column{
     {Title: "Note", Width: 25},
     {Title: "Date Modified", Width: 16},
@@ -429,13 +429,12 @@ func main() {
 
   s := table.DefaultStyles()
   s.Header = s.Header.
-    BorderStyle(lipgloss.NormalBorder()).
+    BorderStyle(lipgloss.RoundedBorder()).
     BorderForeground(lipgloss.Color("240")).
-    BorderBottom(true).
-    Bold(true)
+    BorderBottom(true)
   s.Selected = s.Selected.
-    Foreground(lipgloss.Color("229")).
-    Background(lipgloss.Color("57")).
+    Foreground(lipgloss.Color("213")).
+    Background(lipgloss.Color("25")).
     Bold(true)
   t.SetStyles(s)
 
