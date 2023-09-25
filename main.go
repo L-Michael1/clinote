@@ -72,6 +72,7 @@ var (
     ),
   }
 )
+
 type keyMap struct {
   Up    key.Binding
   Down  key.Binding
@@ -82,10 +83,12 @@ type keyMap struct {
   New   key.Binding
   Edit  key.Binding
 }
+
 type note struct {
   name            string
   timeModified    string
 }
+
 type model struct {
   note 			      string
   notes 		      []note
