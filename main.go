@@ -104,8 +104,9 @@ func (k keyMap) ShortHelp() []key.Binding {
 
 func (k keyMap) FullHelp() [][]key.Binding {
   return [][]key.Binding{
-    {k.Up, k.Down, k.New, k.Edit, k.Back},          // first column
-    {k.Help, k.Quit},                // second column
+    {k.Up, k.Down, k.Back},
+    {k.New, k.Edit},      
+    {k.Help, k.Quit},               
   }
 }
 
@@ -149,27 +150,39 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
   
   switch msg := msg.(type) {
   case tea.KeyMsg:
+    
+    // Help menu toggle
     switch {
     case key.Matches(msg, m.keys.Help):
       m.help.ShowAll = !m.help.ShowAll
     }
+
     switch msg.String() {
-    
+
+    // Exit program
     case "ctrl+c", "q":
       return m, tea.Quit
+    
+    // Open note in editor
     case "e":
+      if len(m.notes) == 0 {
+        return m, nil
+      }
       m.chosen = true
       m.openNote(m.table.SelectedRow()[0])
-      m.table.Focus()
       m.chosen = false
       return m, nil
+    
+    // Create new note in editor
     case "n":
+      m.chosen = true
       m.openNote("new_note.md")
       m.chosen = false
-      m.table.Focus()
       m.notes = getNotes()
       m.table, cmd = m.updateTable()
       return m, cmd
+
+    // Back to table view
     case "b", "esc", "backspace":
       m.chosen = false
       m.table.Focus()
@@ -208,13 +221,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
   // Call update loop on note
   return updateNoteView(msg, m)
-}
-
-func (m model) headerViewHeight() int {
-  if m.table.SelectedRow() != nil {
-    return lipgloss.Height(m.headerView())
-  }
-  return 0
 }
 
 func (m model) View() string {
