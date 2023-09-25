@@ -18,7 +18,8 @@ import (
 )
 
 var (
-  notesFolder = os.Getenv("NOTES_FOLDER") + "/"
+  notesFolder string
+  editor []string
 
   baseStyle = lipgloss.NewStyle().
     BorderStyle(lipgloss.NormalBorder()).
@@ -111,7 +112,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 }
 
 func (m model) openNote(fileName string) {
-  editor := strings.Split(os.Getenv("EDITOR"), " ")
+  editor = strings.Split(os.Getenv("EDITOR"), " ")
 
   editor = append(editor, notesFolder + fileName)
   args := editor[1:]
@@ -171,6 +172,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
       m.chosen = true
       m.openNote(m.table.SelectedRow()[0])
       m.chosen = false
+      m.table.Focus()
       return m, nil
     
     // Create new note in editor
@@ -178,6 +180,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
       m.chosen = true
       m.openNote("new_note.md")
       m.chosen = false
+      m.table.Focus()
       m.notes = getNotes()
       m.table, cmd = m.updateTable()
       return m, cmd
@@ -368,6 +371,22 @@ func checkErr(err error) {
 }
 
 func main() {
+  
+  // If no notes folder is specified, default to ~/notes/
+  if os.Getenv("NOTES_FOLDER") == "" {
+    notesFolder = os.Getenv("HOME") + "/notes/"
+  } else {
+    notesFolder = os.Getenv("NOTES_FOLDER") + "/"
+  }
+
+  // If no editor is specified, default to vim
+  if os.Getenv("EDITOR") == "" {
+    os.Setenv("EDITOR", "vim")
+  } else {
+    editor = strings.Split(os.Getenv("EDITOR"), " ")
+  }
+
+
   columns := []table.Column{
     {Title: "Note", Width: 25},
     {Title: "Date Modified", Width: 16},
