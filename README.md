@@ -2,10 +2,19 @@
 
 TUI notes manager to read, edit, and add notes in style
 
+![clinote_demo](https://github.com/L-Michael1/clinote/assets/27537005/d5384977-81ee-42e1-b605-483a5a53dfff)
+
 ### Install
 
 ```
 go install github.com/L-Michael1/clinote@latest
+```
+
+### Path configuration
+
+Ensure that you have the go bin directory in your path:
+```
+export PATH="$HOME/go/bin:$PATH"
 ```
 
 ### Run
@@ -34,7 +43,7 @@ $NOTES_FOLDER = $HOME + "/notes/"
 $EDITOR = "vim"
 ```
 
-To configure the path to where your notes are stored - change the $NOTES_FOLDER path
+To configure the path to where your notes are stored - change the $NOTES_FOLDER path:
 
 ```
 export NOTES_FOLDER="CUSTOM_PATH"
