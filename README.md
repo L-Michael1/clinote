@@ -2,7 +2,9 @@
 
 TUI notes manager to read, edit, and add notes in style
 
-![clinote_demo](https://github.com/L-Michael1/clinote/assets/27537005/d5384977-81ee-42e1-b605-483a5a53dfff)
+![clinote_table](https://github.com/L-Michael1/clinote/assets/27537005/d3f494ff-574d-4110-b8e0-8b555d815153)
+![clinote_note](https://github.com/L-Michael1/clinote/assets/27537005/ce47be18-c973-4af3-a1ce-dc2819254ca1)
+![clinote_demo](https://github.com/L-Michael1/clinote/assets/27537005/a3e3134b-33b5-4df7-b967-4f9dc9cd10b4)
 
 ### Install
 
