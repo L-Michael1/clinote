@@ -56,7 +56,11 @@ var (
     ),
     Back: key.NewBinding(
       key.WithKeys("b", "backspace"),
-      key.WithHelp("b/bspace", "back"),
+      key.WithHelp("b/bspace/esc", "back"),
+    ),
+    View: key.NewBinding(
+      key.WithKeys("enter"),
+      key.WithHelp("enter", "view note"),
     ),
     New: key.NewBinding(
       key.WithKeys("n"),
@@ -74,6 +78,7 @@ type keyMap struct {
   Help  key.Binding
   Quit  key.Binding
   Back  key.Binding
+  View  key.Binding
   New   key.Binding
   Edit  key.Binding
 }
@@ -106,7 +111,7 @@ func (k keyMap) ShortHelp() []key.Binding {
 func (k keyMap) FullHelp() [][]key.Binding {
   return [][]key.Binding{
     {k.Up, k.Down, k.Back},
-    {k.New, k.Edit},      
+    {k.View, k.New, k.Edit},      
     {k.Help, k.Quit},               
   }
 }
@@ -123,8 +128,12 @@ func (m model) openNote(fileName string) {
 
   cmd.Stdin = os.Stdin
   cmd.Stdout = os.Stdout
+  cmd.Stderr = os.Stderr
 
-  err := cmd.Run()
+  err := cmd.Start()
+  checkErr(err)
+
+  err = cmd.Wait()
   checkErr(err)
 }
 
@@ -164,25 +173,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     case "ctrl+c", "q":
       return m, tea.Quit
     
-    // Open note in editor
-    case "e":
-      if len(m.notes) == 0 {
-        return m, nil
-      }
-      m.chosen = true
-      m.openNote(m.table.SelectedRow()[0])
-      m.chosen = false
-      m.table.Focus()
-      return m, nil
-    
     // Create new note in editor
     case "n":
-      m.chosen = true
       m.openNote("new_note.md")
-      m.chosen = false
-      m.table.Focus()
-      m.notes = getNotes()
-      m.table, cmd = m.updateTable()
+      resetTerminal()
       return m, cmd
 
     // Back to table view
@@ -253,11 +247,20 @@ func updateTableView(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
     switch msg.String() {
     case "enter":
       if len(m.notes) != 0 {
+
+        // Go to note view
         m.chosen = true
         m.note = m.table.SelectedRow()[0]
         m.table.Blur()
         m.noteView.SetContent(m.renderNote())
         return m, nil
+      }
+
+    case "e":
+      if len(m.notes) != 0 {
+        // Open the selected note for editing
+        m.openNote(m.table.SelectedRow()[0])
+        resetTerminal()
       }
     }
   }
@@ -277,6 +280,21 @@ func updateNoteView(msg tea.Msg, m model) (tea.Model, tea.Cmd) {
   // Handle keyboard and mouse events in the viewport
   m.noteView, cmd = m.noteView.Update(msg)
   cmds = append(cmds, cmd)
+
+  switch msg := msg.(type) {
+  case tea.KeyMsg:
+    switch msg.String() {
+    case "e":
+      // Open the current note in the editor for editing
+      m.openNote(m.note)
+
+      // Return to the table view
+      m.chosen = false
+      m.table.Focus()
+      m.table, cmd = m.table.Update(msg)
+      return m, cmd
+    }
+  }
 
   return m, tea.Batch(cmds...)
 }
@@ -362,6 +380,13 @@ func (m model) updateTable() (table.Model, tea.Cmd) {
   rows := convertNotesToRows(m.notes)
   m.table.SetRows(rows)
   return m.table, nil
+}
+
+func resetTerminal() {
+  cmd := exec.Command("go", "run", ".")
+  cmd.Stdin = os.Stdin
+  cmd.Stdout = os.Stdout
+  cmd.Run()
 }
 
 func checkErr(err error) {
