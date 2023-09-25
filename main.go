@@ -133,20 +133,12 @@ func (m model) renderNote() string {
     return out
   }
 
-  // Check if the file is cached
-  if m.cache[m.note] != "" {
-    return m.cache[m.note]
-  }
-
   // Read and render the file
   content, err := os.ReadFile(notesFolder + m.note)
   checkErr(err)
 
   out, err := m.renderer.Render(string(content))
   checkErr(err)
-
-  // Cache the file
-  m.cache[m.note] = out
 
   return out
 }
@@ -166,8 +158,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     case "ctrl+c", "q":
       return m, tea.Quit
     case "e":
-      fmt.Println("edit")
+      m.chosen = true
       m.openNote(m.table.SelectedRow()[0])
+      m.table.Focus()
+      m.chosen = false
       return m, nil
     case "n":
       m.openNote("new_note.md")
@@ -208,11 +202,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
   // Call update loop on table
   if !m.chosen {
+    m.table.Focus() 
     return updateTableView(msg, m)
   } 
 
   // Call update loop on note
   return updateNoteView(msg, m)
+}
+
+func (m model) headerViewHeight() int {
+  if m.table.SelectedRow() != nil {
+    return lipgloss.Height(m.headerView())
+  }
+  return 0
 }
 
 func (m model) View() string {
@@ -372,7 +374,7 @@ func main() {
     table.WithColumns(columns),
     table.WithRows(rows),
     table.WithFocused(true),
-    table.WithHeight(8),
+    table.WithHeight(7),
   )
 
   s := table.DefaultStyles()
